@@ -1,8 +1,6 @@
 get_filename_component(@PROJECT_NAME@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(CMakeFindDependencyMacro)
 
-find_dependency(AsioStandalone REQUIRED)
-
 if(NOT TARGET @PROJECT_NAME@::@TARGET_NAME@)
     include("${@PROJECT_NAME@_CMAKE_DIR}/@PROJECT_NAME@-targets.cmake")
 endif()

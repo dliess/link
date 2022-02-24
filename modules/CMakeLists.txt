@@ -1,43 +1,33 @@
 cmake_minimum_required(VERSION 3.0)
-project(AbletonLink
-        VERSION 3.0.3
-        LANGUAGES CXX)
-        
+project(AsioStandalone
+        VERSION 1.17.0
+        LANGUAGES C CXX)
+
+#set (CMAKE_CXX_STANDARD 11)
+
 set(TARGET_NAME ${PROJECT_NAME})
 
 add_library(${TARGET_NAME} INTERFACE)
 target_include_directories(${TARGET_NAME}
     INTERFACE
-      "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
+      "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/asio-standalone/asio/include>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>"
 )
-
-target_compile_features(${TARGET_NAME} INTERFACE cxx_generalized_initializers)
-target_compile_definitions(${TARGET_NAME} INTERFACE LINK_PLATFORM_UNIX=1)
-target_compile_definitions(${TARGET_NAME} INTERFACE LINK_PLATFORM_LINUX=1)
-
-find_package(AsioStandalone 1.17.0 CONFIG)
-if(NOT AsioStandalone_FOUND)
-  add_subdirectory(modules)
-  add_library(AsioStandalone::AsioStandalone ALIAS AsioStandalone)
-endif()
-
-target_link_libraries(${TARGET_NAME} INTERFACE AsioStandalone::AsioStandalone)
 
 # install steps
 include(GNUInstallDirs)
 
 install(
-    DIRECTORY ${CMAKE_SOURCE_DIR}/include/ableton
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/asio-standalone/asio/include/asio
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME})
 
-install(TARGETS ${TARGET_NAME}  EXPORT ${PROJECT_NAME}-targets)
+install(TARGETS ${TARGET_NAME} EXPORT ${PROJECT_NAME}-targets)
 
 install(EXPORT ${PROJECT_NAME}-targets
   NAMESPACE  ${PROJECT_NAME}::
   DESTINATION  "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
 )
-configure_file(cmake_include/${PROJECT_NAME}Config.cmake.in cmake/${PROJECT_NAME}Config.cmake @ONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in cmake/${PROJECT_NAME}Config.cmake @ONLY)
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file("${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config-version.cmake" COMPATIBILITY SameMajorVersion)

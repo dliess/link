@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.0)
 project(Link)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -33,10 +32,12 @@ endif()
 include(cmake_include/ConfigureCompileFlags.cmake)
 include(cmake_include/CatchConfig.cmake)
 include(AbletonLinkConfig.cmake)
+include(extensions/abl_link/abl_link.cmake)
 
 add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(examples)
+add_subdirectory(extensions/abl_link)
 
 #  ____
 # / ___| _   _ _ __ ___  _ __ ___   __ _ _ __ _   _
@@ -60,4 +61,3 @@ if(CMAKE_BUILD_TYPE)
 else()
   message("   Build type: Set by IDE")
 endif()
-

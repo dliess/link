@@ -29,6 +29,7 @@
 #include <ableton/link/SessionState.hpp>
 #include <ableton/link/Sessions.hpp>
 #include <ableton/link/StartStopState.hpp>
+#include <condition_variable>
 #include <mutex>
 
 namespace ableton
@@ -127,8 +128,7 @@ public:
     PeerCountCallback peerCallback,
     TempoCallback tempoCallback,
     StartStopStateCallback startStopStateCallback,
-    Clock clock,
-    util::Injected<IoContext> io)
+    Clock clock)
     : mTempoCallback(std::move(tempoCallback))
     , mStartStopStateCallback(std::move(startStopStateCallback))
     , mClock(std::move(clock))
@@ -142,7 +142,7 @@ public:
     , mSessionPeerCounter(*this, std::move(peerCallback))
     , mEnabled(false)
     , mStartStopSyncEnabled(false)
-    , mIo(std::move(io))
+    , mIo(IoContext{UdpSendExceptionHandler{this}})
     , mRtClientStateSetter(*this)
     , mPeers(util::injectRef(*mIo),
         std::ref(mSessionPeerCounter),
@@ -159,7 +159,7 @@ public:
                                   mSessionState.startStopState},
                    mSessionState.ghostXForm),
         GatewayFactory{*this},
-        util::injectVal(mIo->clone(UdpSendExceptionHandler{*this})))
+        util::injectRef(*mIo))
   {
   }
 
@@ -171,6 +171,20 @@ public:
 
   ~Controller()
   {
+    std::mutex mutex;
+    std::condition_variable condition;
+    auto stopped = false;
+
+    mIo->async([this, &mutex, &condition, &stopped]() {
+      enable(false);
+      std::unique_lock<std::mutex> lock(mutex);
+      stopped = true;
+      condition.notify_one();
+    });
+
+    std::unique_lock<std::mutex> lock(mutex);
+    condition.wait(lock, [&stopped] { return stopped; });
+
     mIo->stop();
   }
 
@@ -649,7 +663,7 @@ private:
         {
           // When the count goes down to zero, completely reset the
           // state, effectively founding a new session
-          mController.resetState();
+          mController.mIo->async([this] { mController.resetState(); });
         }
         mCallback(count);
       }
@@ -667,7 +681,7 @@ private:
     {
       using It = typename Discovery::ServicePeerGateways::GatewayMap::iterator;
       using ValueType = typename Discovery::ServicePeerGateways::GatewayMap::value_type;
-      mController.mDiscovery.withGatewaysAsync([peer, handler](It begin, const It end) {
+      mController.mDiscovery.withGateways([peer, handler](It begin, const It end) {
         const auto addr = peer.second;
         const auto it = std::find_if(
           begin, end, [&addr](const ValueType& vt) { return vt.first == addr; });
@@ -733,12 +747,14 @@ private:
   {
     using Exception = discovery::UdpSendException;
 
-    void operator()(const Exception& exception)
+    void operator()(const Exception exception)
     {
-      mController.mDiscovery.repairGateway(exception.interfaceAddr);
+      mpController->mIo->async([this, exception] {
+        mpController->mDiscovery.repairGateway(exception.interfaceAddr);
+      });
     }
 
-    Controller& mController;
+    Controller* mpController;
   };
 
   TempoCallback mTempoCallback;
@@ -776,8 +792,9 @@ private:
     Clock>;
   ControllerSessions mSessions;
 
-  using Discovery =
-    discovery::Service<std::pair<NodeState, GhostXForm>, GatewayFactory, IoContext>;
+  using Discovery = discovery::Service<std::pair<NodeState, GhostXForm>,
+    GatewayFactory,
+    typename util::Injected<IoContext>::type&>;
   Discovery mDiscovery;
 };
 

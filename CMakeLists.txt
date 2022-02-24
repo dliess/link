@@ -1,63 +1,40 @@
 cmake_minimum_required(VERSION 3.0)
-project(Link)
+project(AbletonLink
+        VERSION 3.0.3
+        LANGUAGES CXX)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+#set (CMAKE_CXX_STANDARD 11)
 
-#   ___        _   _
-#  / _ \ _ __ | |_(_) ___  _ __  ___
-# | | | | '_ \| __| |/ _ \| '_ \/ __|
-# | |_| | |_) | |_| | (_) | | | \__ \
-#  \___/| .__/ \__|_|\___/|_| |_|___/
-#       |_|
+set(TARGET_NAME ${PROJECT_NAME})
 
-# Note: Please use the LINK_* prefix for all project-specific options
+add_library(${TARGET_NAME} INTERFACE)
+target_include_directories(${TARGET_NAME}
+    INTERFACE
+      "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
+      "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>"
+)
 
-if(UNIX)
-  option(LINK_ENABLE_ASAN "Build with Address Sanitizier (ASan)" OFF)
-  option(LINK_BUILD_JACK "Build example applications with JACK support" OFF)
-endif()
+target_compile_features(${TARGET_NAME} INTERFACE cxx_generalized_initializers)
+target_compile_definitions(${TARGET_NAME} INTERFACE LINK_PLATFORM_UNIX=1)
+#target_link_libraries(${TARGET_NAME} INTERFACE AsioStandalone::AsioStandalone)
 
-if(WIN32)
-  option(LINK_BUILD_ASIO "Build example applications with ASIO driver" ON)
-  option(LINK_BUILD_VLD "Build with VLD support (VLD must be installed separately)" OFF)
-endif()
+# install steps
+include(GNUInstallDirs)
 
-#  ____       _   _
-# |  _ \ __ _| |_| |__  ___
-# | |_) / _` | __| '_ \/ __|
-# |  __/ (_| | |_| | | \__ \
-# |_|   \__,_|\__|_| |_|___/
-#
+install(
+    DIRECTORY ${CMAKE_SOURCE_DIR}/include/ableton
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME})
 
-# Other CMake files must be included only after declaring build options
-include(cmake_include/ConfigureCompileFlags.cmake)
-include(cmake_include/CatchConfig.cmake)
-include(AbletonLinkConfig.cmake)
+install(TARGETS ${TARGET_NAME}  EXPORT ${PROJECT_NAME}-targets)
 
-add_subdirectory(include)
-add_subdirectory(src)
-add_subdirectory(examples)
+install(EXPORT ${PROJECT_NAME}-targets
+  NAMESPACE  ${PROJECT_NAME}::
+  DESTINATION  "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+)
+configure_file(cmake_include/${PROJECT_NAME}Config.cmake.in cmake/${PROJECT_NAME}Config.cmake @ONLY)
 
-#  ____
-# / ___| _   _ _ __ ___  _ __ ___   __ _ _ __ _   _
-# \___ \| | | | '_ ` _ \| '_ ` _ \ / _` | '__| | | |
-#  ___) | |_| | | | | | | | | | | | (_| | |  | |_| |
-# |____/ \__,_|_| |_| |_|_| |_| |_|\__,_|_|   \__, |
-#                                             |___/
-
-message(STATUS "Build options")
-
-get_cmake_property(all_variables VARIABLES)
-string(REGEX MATCHALL "(^|;)LINK_[A-Z_]+" link_variables "${all_variables}")
-foreach(variable ${link_variables})
-  message("   ${variable}: ${${variable}}")
-endforeach()
-
-message(STATUS "Build configuration")
-
-if(CMAKE_BUILD_TYPE)
-  message("   Build type: ${CMAKE_BUILD_TYPE}")
-else()
-  message("   Build type: Set by IDE")
-endif()
-
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file("${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config-version.cmake" COMPATIBILITY SameMajorVersion)
+install(FILES       "${CMAKE_CURRENT_BINARY_DIR}/cmake/${TARGET_NAME}Config.cmake"
+                    "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config-version.cmake"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
